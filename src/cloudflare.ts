@@ -16,7 +16,9 @@ interface CloudflareEnv {
   SHOW_TOKEN?: string
 }
 
-function buildContainerEnvVars(env: CloudflareEnv): Record<string, string> {
+type ContainerRuntimeEnv = Omit<CloudflareEnv, "COPILOT_API">
+
+function buildContainerEnvVars(env: ContainerRuntimeEnv): Record<string, string> {
   const envVars: Record<string, string> = {
     ACCOUNT_TYPE: env.ACCOUNT_TYPE ?? "individual",
     DISABLE_TOKEN_ENDPOINT: env.DISABLE_TOKEN_ENDPOINT ?? "true",
