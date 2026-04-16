@@ -95,6 +95,15 @@ docker run -p 4141:4141 -e GH_TOKEN=your_github_token_here copilot-api
 docker run -p 4141:4141 -e GH_TOKEN=your_token copilot-api start --verbose --port 4141
 ```
 
+Additional environment variables supported by the container entrypoint:
+
+- `ACCOUNT_TYPE` (`individual`, `business`, `enterprise`)
+- `RATE_LIMIT_SECONDS`
+- `RATE_LIMIT_WAIT` (`true` or `false`)
+- `SHOW_TOKEN` (`true` or `false`)
+- `PROXY_ENV` (`true` or `false`)
+- `DISABLE_TOKEN_ENDPOINT` (`true` or `false`)
+
 ### Docker Compose Example
 
 ```yaml
@@ -115,6 +124,164 @@ The Docker image includes:
 - Non-root user for enhanced security
 - Health check for container monitoring
 - Pinned base image version for reproducible builds
+
+## Deploying to Cloudflare Containers
+
+This repository includes a Cloudflare Containers wrapper so you can deploy the existing Bun server without rewriting it to a Worker-native app.
+
+### What gets deployed
+
+- A Worker entrypoint in `src/cloudflare.ts`
+- A single container instance backed by the existing `Dockerfile`
+- The existing OpenAI-compatible and Anthropic-compatible HTTP API
+
+### Production defaults
+
+- `workers.dev` is enabled by default
+- `GH_TOKEN` must be provided as a Cloudflare secret
+- `/token` is disabled by default in Cloudflare via `DISABLE_TOKEN_ENDPOINT=true`
+- `SHOW_TOKEN=false` by default
+
+### Prerequisites
+
+- Cloudflare account with a paid Workers plan that supports Containers
+- Docker or a Docker-compatible CLI running locally for `wrangler deploy`
+- `wrangler` authenticated with your Cloudflare account
+- A GitHub token generated for Copilot use
+
+### Deploy with GitHub Actions
+
+If you do not want Docker on your local machine, use the included GitHub Actions workflow. The GitHub-hosted runner builds the container image and runs `wrangler deploy` for you.
+
+Repository secrets required:
+
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID`
+- `COPILOT_GH_TOKEN`
+
+Optional repository variables:
+
+- `ACCOUNT_TYPE` (`individual`, `business`, `enterprise`)
+- `DISABLE_TOKEN_ENDPOINT` (`true` by default)
+- `RATE_LIMIT_SECONDS`
+- `RATE_LIMIT_WAIT`
+- `SHOW_TOKEN`
+
+Workflow file:
+
+- `.github/workflows/deploy-cloudflare.yml`
+
+How it works:
+
+1. Installs dependencies
+2. Runs `tsc --noEmit`
+3. Updates the Worker secret `GH_TOKEN` from the GitHub secret `COPILOT_GH_TOKEN`
+4. Runs `wrangler deploy`
+
+How to use it:
+
+1. Push this repository to GitHub
+2. In GitHub, open `Settings -> Secrets and variables -> Actions`
+3. Add the three required secrets
+4. Push to `master` or `main`, or run the workflow manually from `Actions`
+
+This is the recommended deployment path if you want Cloudflare Containers without installing Docker locally.
+
+### Local Cloudflare development
+
+1. Install dependencies:
+
+   ```sh
+   bun install
+   ```
+
+2. Copy the example env file and add your token:
+
+   ```sh
+   cp .dev.vars.example .dev.vars
+   ```
+
+3. Start the Worker + container locally:
+
+   ```sh
+   bun run cf:dev
+   ```
+
+### Deploy
+
+1. Install dependencies:
+
+   ```sh
+   bun install
+   ```
+
+2. Authenticate Wrangler if needed:
+
+   ```sh
+   bunx wrangler login
+   ```
+
+3. Set the GitHub token secret:
+
+   ```sh
+   bunx wrangler secret put GH_TOKEN
+   ```
+
+4. Deploy:
+
+   ```sh
+   bun run cf:deploy
+   ```
+
+5. Optional: override defaults before deploy in `wrangler.jsonc` or with environment-specific config:
+
+- `ACCOUNT_TYPE`
+- `RATE_LIMIT_SECONDS`
+- `RATE_LIMIT_WAIT`
+- `DISABLE_TOKEN_ENDPOINT`
+
+If you are deploying with GitHub Actions instead, you can skip all local Docker and Wrangler auth setup and use the workflow above.
+
+### Protecting the API with Cloudflare Access
+
+This project does not implement its own API key middleware by default. For internet-facing deployments, protect the `workers.dev` hostname with Cloudflare Access so only your identity or approved service tokens can reach the API.
+
+Recommended policy shape:
+
+- Create a self-hosted application for the deployed `workers.dev` URL
+- Allow only your user identity or a dedicated Access service token
+- Keep `/usage` behind the same policy
+- Leave `/token` disabled in production
+
+### Calling the API through Cloudflare Access
+
+For browser use, authenticate with your Cloudflare Access identity as usual.
+
+For CLI tools and server-to-server use, create a Cloudflare Access service token and send these headers on every request:
+
+- `CF-Access-Client-Id`
+- `CF-Access-Client-Secret`
+
+Example:
+
+```sh
+curl https://your-worker.your-subdomain.workers.dev/v1/models \
+  -H "CF-Access-Client-Id: <your-access-client-id>" \
+  -H "CF-Access-Client-Secret: <your-access-client-secret>"
+```
+
+Example OpenAI-compatible chat request:
+
+```sh
+curl https://your-worker.your-subdomain.workers.dev/v1/chat/completions \
+  -H "content-type: application/json" \
+  -H "CF-Access-Client-Id: <your-access-client-id>" \
+  -H "CF-Access-Client-Secret: <your-access-client-secret>" \
+  -d '{
+    "model": "claude-sonnet-4",
+    "messages": [{"role": "user", "content": "Say hello"}]
+  }'
+```
 
 ## Using with npx
 
@@ -207,7 +374,7 @@ New endpoints for monitoring your Copilot usage and quotas.
 | Endpoint     | Method | Description                                                  |
 | ------------ | ------ | ------------------------------------------------------------ |
 | `GET /usage` | `GET`  | Get detailed Copilot usage statistics and quota information. |
-| `GET /token` | `GET`  | Get the current Copilot token being used by the API.         |
+| `GET /token` | `GET`  | Get the current Copilot token being used by the API. Can be disabled in production. |
 
 ## Example Usage
 

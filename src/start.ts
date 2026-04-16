@@ -25,6 +25,7 @@ interface RunServerOptions {
   claudeCode: boolean
   showToken: boolean
   proxyEnv: boolean
+  disableTokenEndpoint: boolean
 }
 
 export async function runServer(options: RunServerOptions): Promise<void> {
@@ -46,14 +47,15 @@ export async function runServer(options: RunServerOptions): Promise<void> {
   state.rateLimitSeconds = options.rateLimit
   state.rateLimitWait = options.rateLimitWait
   state.showToken = options.showToken
+  state.allowTokenEndpoint = !options.disableTokenEndpoint
 
-  await ensurePaths()
   await cacheVSCodeVersion()
 
   if (options.githubToken) {
     state.githubToken = options.githubToken
     consola.info("Using provided GitHub token")
   } else {
+    await ensurePaths()
     await setupGitHubToken()
   }
 
@@ -184,6 +186,11 @@ export const start = defineCommand({
       default: false,
       description: "Initialize proxy from environment variables",
     },
+    "disable-token-endpoint": {
+      type: "boolean",
+      default: false,
+      description: "Disable the /token endpoint",
+    },
   },
   run({ args }) {
     const rateLimitRaw = args["rate-limit"]
@@ -202,6 +209,7 @@ export const start = defineCommand({
       claudeCode: args["claude-code"],
       showToken: args["show-token"],
       proxyEnv: args["proxy-env"],
+      disableTokenEndpoint: args["disable-token-endpoint"],
     })
   },
 })

@@ -23,6 +23,9 @@
   ],
   "scripts": {
     "build": "tsdown",
+    "cf:deploy": "wrangler deploy",
+    "cf:dev": "wrangler dev",
+    "cf:typegen": "wrangler types",
     "dev": "bun run --watch ./src/main.ts",
     "knip": "knip-bun",
     "lint": "eslint --cache",
@@ -40,6 +43,7 @@
     "*": "bun run lint --fix"
   },
   "dependencies": {
+    "@cloudflare/containers": "^0.2.4",
     "citty": "^0.1.6",
     "clipboardy": "^5.0.0",
     "consola": "^3.4.2",
@@ -63,6 +67,7 @@
     "prettier-plugin-packagejson": "^2.5.19",
     "simple-git-hooks": "^2.13.1",
     "tsdown": "^0.15.6",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "wrangler": "^4.73.0"
   }
 }

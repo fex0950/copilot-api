@@ -1,0 +1,68 @@
+name: Deploy to Cloudflare
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      COPILOT_GH_TOKEN: ${{ secrets.COPILOT_GH_TOKEN }}
+      ACCOUNT_TYPE: ${{ vars.ACCOUNT_TYPE || 'individual' }}
+      DISABLE_TOKEN_ENDPOINT: ${{ vars.DISABLE_TOKEN_ENDPOINT || 'true' }}
+      RATE_LIMIT_SECONDS: ${{ vars.RATE_LIMIT_SECONDS }}
+      RATE_LIMIT_WAIT: ${{ vars.RATE_LIMIT_WAIT }}
+      SHOW_TOKEN: ${{ vars.SHOW_TOKEN || 'false' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Validate required secrets
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          test -n "$COPILOT_GH_TOKEN"
+
+      - name: Sync Cloudflare GH_TOKEN secret
+        run: printf '%s' "$COPILOT_GH_TOKEN" | npx wrangler secret put GH_TOKEN
+
+      - name: Deploy Worker and container
+        shell: bash
+        run: |
+          args=(
+            --var "ACCOUNT_TYPE:${ACCOUNT_TYPE}"
+            --var "DISABLE_TOKEN_ENDPOINT:${DISABLE_TOKEN_ENDPOINT}"
+            --var "SHOW_TOKEN:${SHOW_TOKEN}"
+          )
+
+          if [[ -n "${RATE_LIMIT_SECONDS}" ]]; then
+            args+=(--var "RATE_LIMIT_SECONDS:${RATE_LIMIT_SECONDS}")
+          fi
+
+          if [[ -n "${RATE_LIMIT_WAIT}" ]]; then
+            args+=(--var "RATE_LIMIT_WAIT:${RATE_LIMIT_WAIT}")
+          fi
+
+          npx wrangler deploy "${args[@]}"

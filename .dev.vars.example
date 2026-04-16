@@ -1,0 +1,6 @@
+GH_TOKEN=ghp_your_github_token_here
+# ACCOUNT_TYPE=individual
+# RATE_LIMIT_SECONDS=30
+# RATE_LIMIT_WAIT=true
+# SHOW_TOKEN=false
+# DISABLE_TOKEN_ENDPOINT=true

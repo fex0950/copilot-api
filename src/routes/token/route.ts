@@ -5,6 +5,10 @@ import { state } from "~/lib/state"
 export const tokenRoute = new Hono()
 
 tokenRoute.get("/", (c) => {
+  if (!state.allowTokenEndpoint) {
+    return c.notFound()
+  }
+
   try {
     return c.json({
       token: state.copilotToken,
