@@ -1,15 +1,21 @@
 import { copilotHeaders, copilotBaseUrl } from "~/lib/api-config"
 import { HTTPError } from "~/lib/error"
+import { fetchWithTimeout } from "~/lib/http"
 import { state } from "~/lib/state"
 
 export const createEmbeddings = async (payload: EmbeddingRequest) => {
   if (!state.copilotToken) throw new Error("Copilot token not found")
 
-  const response = await fetch(`${copilotBaseUrl(state)}/embeddings`, {
-    method: "POST",
-    headers: copilotHeaders(state),
-    body: JSON.stringify(payload),
-  })
+  const response = await fetchWithTimeout(
+    `${copilotBaseUrl(state)}/embeddings`,
+    {
+      method: "POST",
+      headers: copilotHeaders(state),
+      body: JSON.stringify(payload),
+      operation: "Copilot embeddings request",
+      timeoutMs: state.requestTimeoutMs,
+    },
+  )
 
   if (!response.ok) throw new HTTPError("Failed to create embeddings", response)
 

@@ -5,16 +5,23 @@ import {
   standardHeaders,
 } from "~/lib/api-config"
 import { HTTPError } from "~/lib/error"
+import { fetchWithTimeout } from "~/lib/http"
+import { state } from "~/lib/state"
 
 export async function getDeviceCode(): Promise<DeviceCodeResponse> {
-  const response = await fetch(`${GITHUB_BASE_URL}/login/device/code`, {
-    method: "POST",
-    headers: standardHeaders(),
-    body: JSON.stringify({
-      client_id: GITHUB_CLIENT_ID,
-      scope: GITHUB_APP_SCOPES,
-    }),
-  })
+  const response = await fetchWithTimeout(
+    `${GITHUB_BASE_URL}/login/device/code`,
+    {
+      method: "POST",
+      headers: standardHeaders(),
+      body: JSON.stringify({
+        client_id: GITHUB_CLIENT_ID,
+        scope: GITHUB_APP_SCOPES,
+      }),
+      operation: "GitHub device code request",
+      timeoutMs: state.requestTimeoutMs,
+    },
+  )
 
   if (!response.ok) throw new HTTPError("Failed to get device code", response)
 

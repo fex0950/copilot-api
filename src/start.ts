@@ -9,7 +9,12 @@ import invariant from "tiny-invariant"
 import { ensurePaths } from "./lib/paths"
 import { initProxyFromEnv } from "./lib/proxy"
 import { generateEnvScript } from "./lib/shell"
-import { state } from "./lib/state"
+import {
+  DEFAULT_CHAT_COMPLETION_TIMEOUT_MS,
+  DEFAULT_REQUEST_TIMEOUT_MS,
+  DEFAULT_STREAM_IDLE_TIMEOUT_MS,
+  state,
+} from "./lib/state"
 import { setupCopilotToken, setupGitHubToken } from "./lib/token"
 import { cacheModels, cacheVSCodeVersion } from "./lib/utils"
 import { server } from "./server"
@@ -48,13 +53,33 @@ export async function runServer(options: RunServerOptions): Promise<void> {
   state.rateLimitWait = options.rateLimitWait
   state.showToken = options.showToken
   state.allowTokenEndpoint = !options.disableTokenEndpoint
+  state.requestTimeoutMs = readTimeoutFromEnv(
+    "REQUEST_TIMEOUT_MS",
+    DEFAULT_REQUEST_TIMEOUT_MS,
+  )
+  state.chatCompletionTimeoutMs = readTimeoutFromEnv(
+    "CHAT_COMPLETION_TIMEOUT_MS",
+    DEFAULT_CHAT_COMPLETION_TIMEOUT_MS,
+  )
+  state.streamIdleTimeoutMs = readTimeoutFromEnv(
+    "STREAM_IDLE_TIMEOUT_MS",
+    DEFAULT_STREAM_IDLE_TIMEOUT_MS,
+  )
 
-  await cacheVSCodeVersion()
+  consola.info(
+    `Upstream timeouts: request=${state.requestTimeoutMs}ms, chat=${state.chatCompletionTimeoutMs}ms, stream-idle=${state.streamIdleTimeoutMs}ms`,
+  )
 
   if (options.githubToken) {
     state.githubToken = options.githubToken
     consola.info("Using provided GitHub token")
   } else {
+    state.githubToken = undefined
+  }
+
+  await cacheVSCodeVersion()
+
+  if (!state.githubToken) {
     await ensurePaths()
     await setupGitHubToken()
   }
@@ -120,6 +145,21 @@ export async function runServer(options: RunServerOptions): Promise<void> {
     fetch: server.fetch as ServerHandler,
     port: options.port,
   })
+}
+
+function readTimeoutFromEnv(envName: string, fallback: number): number {
+  const raw = process.env[envName]
+  if (!raw) {
+    return fallback
+  }
+
+  const parsed = Number.parseInt(raw, 10)
+  if (Number.isNaN(parsed) || parsed <= 0) {
+    consola.warn(`Ignoring invalid ${envName} value: ${raw}`)
+    return fallback
+  }
+
+  return parsed
 }
 
 export const start = defineCommand({

@@ -10,14 +10,17 @@
   },
   "vars": {
     "ACCOUNT_TYPE": "individual",
+    "CHAT_COMPLETION_TIMEOUT_MS": "60000",
     "DISABLE_TOKEN_ENDPOINT": "true",
-    "SHOW_TOKEN": "false"
+    "REQUEST_TIMEOUT_MS": "15000",
+    "SHOW_TOKEN": "false",
+    "STREAM_IDLE_TIMEOUT_MS": "45000"
   },
   "containers": [
     {
       "class_name": "CopilotApiContainer",
       "image": "./Dockerfile",
-      "max_instances": 1,
+      "max_instances": 3,
       "instance_type": "basic"
     }
   ],

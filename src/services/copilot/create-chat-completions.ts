@@ -3,6 +3,7 @@ import { events } from "fetch-event-stream"
 
 import { copilotHeaders, copilotBaseUrl } from "~/lib/api-config"
 import { HTTPError } from "~/lib/error"
+import { fetchWithTimeout, withIdleTimeout } from "~/lib/http"
 import { state } from "~/lib/state"
 
 export const createChatCompletions = async (
@@ -28,11 +29,16 @@ export const createChatCompletions = async (
     "X-Initiator": isAgentCall ? "agent" : "user",
   }
 
-  const response = await fetch(`${copilotBaseUrl(state)}/chat/completions`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(payload),
-  })
+  const response = await fetchWithTimeout(
+    `${copilotBaseUrl(state)}/chat/completions`,
+    {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+      operation: "Copilot chat completions request",
+      timeoutMs: state.chatCompletionTimeoutMs,
+    },
+  )
 
   if (!response.ok) {
     consola.error("Failed to create chat completions", response)
@@ -40,7 +46,10 @@ export const createChatCompletions = async (
   }
 
   if (payload.stream) {
-    return events(response)
+    return withIdleTimeout(events(response), {
+      operation: "Copilot chat completions stream",
+      timeoutMs: state.streamIdleTimeoutMs,
+    })
   }
 
   return (await response.json()) as ChatCompletionResponse

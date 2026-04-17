@@ -12,6 +12,22 @@ export class HTTPError extends Error {
   }
 }
 
+export function createErrorResponse(
+  status: number,
+  message: string,
+  extra: Record<string, unknown> = {},
+): Response {
+  return Response.json(
+    {
+      error: {
+        message,
+        ...extra,
+      },
+    },
+    { status },
+  )
+}
+
 export async function forwardError(c: Context, error: unknown) {
   consola.error("Error occurred:", error)
 
@@ -24,6 +40,12 @@ export async function forwardError(c: Context, error: unknown) {
       errorJson = errorText
     }
     consola.error("HTTP error:", errorJson)
+    if (typeof errorJson === "object" && errorJson !== null) {
+      return c.json(
+        errorJson as Record<string, unknown>,
+        error.response.status as ContentfulStatusCode,
+      )
+    }
     return c.json(
       {
         error: {

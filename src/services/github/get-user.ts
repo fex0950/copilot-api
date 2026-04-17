@@ -1,13 +1,16 @@
 import { GITHUB_API_BASE_URL, standardHeaders } from "~/lib/api-config"
 import { HTTPError } from "~/lib/error"
+import { fetchWithTimeout } from "~/lib/http"
 import { state } from "~/lib/state"
 
 export async function getGitHubUser() {
-  const response = await fetch(`${GITHUB_API_BASE_URL}/user`, {
+  const response = await fetchWithTimeout(`${GITHUB_API_BASE_URL}/user`, {
     headers: {
       authorization: `token ${state.githubToken}`,
       ...standardHeaders(),
     },
+    operation: "GitHub user request",
+    timeoutMs: state.requestTimeoutMs,
   })
 
   if (!response.ok) throw new HTTPError("Failed to get GitHub user", response)

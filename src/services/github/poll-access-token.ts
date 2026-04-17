@@ -5,6 +5,8 @@ import {
   GITHUB_CLIENT_ID,
   standardHeaders,
 } from "~/lib/api-config"
+import { fetchWithTimeout } from "~/lib/http"
+import { state } from "~/lib/state"
 import { sleep } from "~/lib/utils"
 
 import type { DeviceCodeResponse } from "./get-device-code"
@@ -18,7 +20,7 @@ export async function pollAccessToken(
   consola.debug(`Polling access token with interval of ${sleepDuration}ms`)
 
   while (true) {
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${GITHUB_BASE_URL}/login/oauth/access_token`,
       {
         method: "POST",
@@ -28,6 +30,8 @@ export async function pollAccessToken(
           device_code: deviceCode.device_code,
           grant_type: "urn:ietf:params:oauth:grant-type:device_code",
         }),
+        operation: "GitHub OAuth access token poll",
+        timeoutMs: state.requestTimeoutMs,
       },
     )
 
